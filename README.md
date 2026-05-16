@@ -1,74 +1,101 @@
 # Peblo — Collaborative AI Notes Workspace
 
-A lightweight full-stack notes app with authentication, tags, AI summaries
-(summary + action items + suggested title), search/filter, public sharing,
-and a productivity insights dashboard.
+Peblo is a lightweight full-stack notes app that helps users capture ideas,
+generate concise AI summaries and action items, tag and share notes publicly,
+and view simple productivity insights.
 
-## Stack
-- **Frontend:** React 18 + Vite + React Router + Tailwind CSS
-- **Backend:** Node.js + Express + better-sqlite3 + JWT auth + bcrypt
-- **AI:** OpenAI Chat Completions (any OpenAI-compatible endpoint works)
-- **DB:** SQLite (file-based, zero setup)
+Features
+- User signup/login (JWT)
+- Create, edit, delete, archive notes
+- Tags and tag filtering
+- AI-generated summary, action items, and suggested title per note
+- Public share links for read-only notes
+- Insights dashboard (recent edits, top tags, weekly activity)
 
-## Architecture
-```
-backend/   Express REST API, SQLite store, JWT middleware, OpenAI client
-frontend/  Vite SPA, JWT in localStorage, protected routes, optimistic UI
-```
+Tech stack
+- Frontend: React 18, Vite, React Router, Tailwind CSS
+- Backend: Node.js, Express
+- DB: Postgres (configured via `DATABASE_URL`) — repository includes SQL schema
+- Auth: bcrypt for password hashing, JWT for session tokens
+- AI: OpenAI or Gemini-compatible client (configurable via env)
 
-Single-tenant schema:
-- `users(id, name, email, password_hash)`
-- `notes(id, user_id, title, content, tags, category, archived, share_id, ai_uses, created_at, updated_at)`
+Repository layout
+- `backend/` — Express API, routes, controllers, models, AI integration
+- `frontend/` — Vite React app, pages and components
+- `docker-compose.yml` — development container orchestration
 
-## Setup
+Required environment variables
+- `PORT` — backend listen port (default 4000)
+- `DATABASE_URL` — Postgres connection string (or change to SQLite if preferred)
+- `JWT_SECRET` — secret used to sign JWTs (keep secret, use strong random value)
+- `OPENAI_API_KEY` — OpenAI API key (optional if using Gemini)
+- `GEMINI_API_KEY` — Google Gemini key (optional)
+- `OPENAI_MODEL` / `GEMINI_MODEL` — model ids (optional)
+- `VITE_API_URL` — frontend API base URL (e.g. `http://localhost:4000`)
+- `CORS_ORIGIN` — allowed origin for frontend during development (optional)
 
-### 1. Backend
+Ports used
+- Backend: `4000` (default) — set via `PORT`
+- Frontend: `5173` (Vite dev server)
+
+Quick start (local, non-docker)
+1) Backend
 ```bash
 cd backend
-cp .env.example .env       # fill JWT_SECRET and OPENAI_API_KEY
+cp .env.example .env    # fill JWT_SECRET and DB/API keys
 npm install
-npm run dev                # http://localhost:4000
+npm run dev
 ```
 
-### 2. Frontend
+2) Frontend
 ```bash
 cd frontend
-cp .env.example .env       # VITE_API_URL=http://localhost:4000
+cp .env.example .env    # set VITE_API_URL to backend URL
 npm install
-npm run dev                # http://localhost:5173
+npm run dev
 ```
 
-### 3. Test
-1. Sign up at `/signup`, then log in.
-2. Create a note, add tags, edit (auto-saves on blur / debounce).
-3. Click **Generate AI** to get summary + action items + suggested title.
-4. Use the search bar and tag filter on the dashboard.
-5. Click **Share** to copy a public `/s/:shareId` link — open in incognito.
-6. Visit **Insights** for totals, recent notes, top tags, AI usage, weekly activity.
+API endpoints (summary)
+- POST `/auth/signup`        — body: { name, email, password }
+- POST `/auth/login`         — body: { email, password }
+- GET  `/notes`              — auth required, query: `q`, `tag`, `archived`
+- POST `/notes`              — auth required, create note
+- GET  `/notes/:id`          — auth required, get note
+- PATCH `/notes/:id`         — auth required, partial update
+- DELETE `/notes/:id`        — auth required, delete note
+- POST `/notes/:id/generate` — auth required, call AI to generate summary
+- POST `/notes/:id/share`    — auth required, create share id
+- DELETE `/notes/:id/share`  — auth required, remove share id
+- GET  `/shared/:shareId`    — public, read-only view
+- GET  `/insights`           — auth required, user insights
 
-## Endpoints
-```
-POST  /auth/signup            { name, email, password }
-POST  /auth/login             { email, password }
-GET   /notes?q=&tag=          (auth)
-POST  /notes                  (auth)
-GET   /notes/:id              (auth)
-PATCH /notes/:id              (auth)
-DELETE /notes/:id             (auth)
-POST  /notes/:id/generate     (auth)  -> { summary, action_items, suggested_title }
-POST  /notes/:id/share        (auth)  -> { share_id, url }
-DELETE /notes/:id/share       (auth)
-GET   /shared/:shareId        (public)
-GET   /insights               (auth)
-```
+AI behavior
+- `backend/src/ai.js` builds a JSON-only prompt and calls configured AI.
+- If no AI key is set, the server provides a deterministic mock for dev/test.
 
-## Notes on AI
-If `OPENAI_API_KEY` is unset, the `/generate` endpoint returns a deterministic
-mock so the UI is fully testable offline.
+Notes & recommendations
+- Database: repository currently uses Postgres via `pg`. If you prefer
+	a zero-dependency setup, consider switching to SQLite and updating
+	`backend/src/db.js` and `package.json` accordingly.
+- Security: keep `JWT_SECRET` and API keys out of git. Use strong secrets.
+- Tests: add unit tests for controllers/models and integration tests for auth
+	and notes flows. Add CI to run tests on push/PRs.
 
-## Security
-- Passwords hashed with bcrypt (10 rounds)
-- JWT signed with `JWT_SECRET`, 7-day expiry
-- All `/notes/*` and `/insights` routes require `Authorization: Bearer <token>`
-- Public share routes only return notes with a non-null `share_id`
-- `.env` is gitignored; `.env.example` documents required vars
+Docker
+- `docker-compose.yml` can run frontend, backend, and a Postgres service.
+	Update `.env` values and build with `docker compose up --build`.
+
+Acceptance checklist (before merging)
+- All tests pass
+- Lint/format applied
+- Environment variables documented in `.env.example`
+- AI key behavior tested (mock vs live)
+- Sharing tested in an incognito window
+
+Contributing
+- See the `backend/` and `frontend/` folders for implementation details.
+	If you want me to implement tasks from the prompts file, tell me which
+	items to prioritize (e.g., DB choice, AI mock, Docker polish, tests).
+
+---
+Updated README: concise project analysis, setup, env, endpoints, and notes.
